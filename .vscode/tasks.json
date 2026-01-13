@@ -1,0 +1,105 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Activate Environment",
+            "type": "shell",
+            "command": "source ${workspaceFolder}/venv/bin/activate",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Run Full Pipeline",
+            "type": "shell",
+            "command": "source ${workspaceFolder}/venv/bin/activate && python main.py --config config.yaml --run-full --verbose",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true,
+                "panel": "shared"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Download Data",
+            "type": "shell",
+            "command": "source ${workspaceFolder}/venv/bin/activate && python main.py --stage data-fetch --verbose",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true,
+                "panel": "shared"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Engineer Features",
+            "type": "shell",
+            "command": "source ${workspaceFolder}/venv/bin/activate && python main.py --stage feature-engineering --verbose",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true,
+                "panel": "shared"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Train Model",
+            "type": "shell",
+            "command": "source ${workspaceFolder}/venv/bin/activate && python main.py --stage train-model --verbose",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true,
+                "panel": "shared"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Run Backtest",
+            "type": "shell",
+            "command": "source ${workspaceFolder}/venv/bin/activate && python main.py --stage backtest --walk-forward --verbose",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true,
+                "panel": "shared"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Run Tests",
+            "type": "shell",
+            "command": "source ${workspaceFolder}/venv/bin/activate && pytest tests/ -v",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true,
+                "panel": "shared"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Install/Update Dependencies",
+            "type": "shell",
+            "command": "source ${workspaceFolder}/venv/bin/activate && pip install -r requirements.txt",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true,
+                "panel": "shared"
+            },
+            "problemMatcher": []
+        }
+    ]
+}
