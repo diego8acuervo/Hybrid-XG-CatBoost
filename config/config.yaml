@@ -4,7 +4,7 @@
 # DATA SETTINGS
 data:
   start_date: "2005-01-01"
-  end_date: "2025-01-13"
+  end_date: "2026-01-16"
   
   # Asset universe across 5 domains
   symbols:
@@ -12,14 +12,14 @@ data:
     - "QQQ"       # Equities: Nasdaq-100 ETF
     - "IWM"       # Equities: Russell 2000 (small cap)
     - "TLT"       # Equities: 20+ Year Treasury ETF
-    - "VIX"       # Volatility: VIX Index
+    - "^VIX"      # Volatility: VIX Index
     - "GLD"       # Commodities: Gold ETF
     - "CL=F"      # Commodities: WTI Crude Oil
     - "DX-Y.NYB"  # FX: USD Dollar Index
     - "EURUSD=X"  # FX: Euro/USD
-    - "JPYUSD=X"  # FX: JPY/USD
-    - "TNX"       # Treasuries: 10Y Treasury Yield
-    - "IRX"       # Treasuries: 3M Treasury Yield
+    - "JPY=X"     # FX: Japanese Yen per USD
+    - "^TNX"      # Treasuries: 10Y Treasury Yield
+    - "^IRX"      # Treasuries: 3M Treasury Yield
   
   # Caching
   cache_data: true

@@ -145,18 +145,24 @@ class YahooFinanceFetcher:
         Fetch and combine data for all symbols into single DataFrame.
         
         Returns:
-            DataFrame with 'Adj Close' prices for all symbols as columns
+            DataFrame with 'Close' prices for all symbols as columns
         """
         data = self.fetch_historical_data()
         
         combined = pd.DataFrame()
         for symbol, df in data.items():
-            if 'Adj Close' in df.columns:
+            # yfinance 1.0 returns 'Close' column (not 'Adj Close')
+            if 'Close' in df.columns:
+                combined[symbol] = df['Close']
+            elif 'Adj Close' in df.columns:  # Fallback for older versions
                 combined[symbol] = df['Adj Close']
         
         combined = combined.sort_index()
         logger.info(f"Combined data shape: {combined.shape}")
-        logger.info(f"Date range: {combined.index[0]} to {combined.index[-1]}")
+        if len(combined) > 0:
+            logger.info(f"Date range: {combined.index[0]} to {combined.index[-1]}")
+        else:
+            logger.warning("Combined DataFrame is empty - no data to process")
         
         return combined
     

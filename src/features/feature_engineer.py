@@ -113,22 +113,15 @@ class FeatureEngineer:
     
     def compute_rolling_beta(self, asset_returns: pd.Series,
                             market_returns: pd.Series, window: int) -> pd.Series:
-        """Compute rolling beta vs market (SPY)."""
-        def _beta(x_y):
-            x = x_y[:len(x_y)//2]
-            y = x_y[len(x_y)//2:]
-            if len(x) < 5 or y.std() == 0:
-                return np.nan
-            covariance = np.cov(x, y)[0, 1]
-            market_var = np.var(y)
-            return covariance / market_var if market_var > 0 else np.nan
+        """Compute rolling beta vs market (SPY).
         
-        # Concatenate for rolling window application
-        combined = pd.concat([asset_returns, market_returns], axis=1)
-        return combined.rolling(window=window).apply(
-            lambda x: np.polyfit(x.iloc[:, 1], x.iloc[:, 0], 1)[0]
-            if x.iloc[:, 1].std() > 0 else np.nan
-        )
+        Beta = Cov(asset, market) / Var(market)
+        Uses pandas optimized built-in methods for best performance.
+        """
+        # Beta = Covariance / Variance
+        rolling_cov = asset_returns.rolling(window).cov(market_returns)
+        rolling_var = market_returns.rolling(window).var()
+        return rolling_cov / rolling_var
     
     def compute_rolling_correlation(self, asset_returns: pd.Series,
                                    market_returns: pd.Series, window: int) -> pd.Series:
@@ -285,10 +278,20 @@ class FeatureEngineer:
         
         logger.info(f"✓ Engineered {feature_count} features")
         logger.info(f"Feature matrix shape: {features.shape}")
-        logger.info(f"Missing values: {features.isna().sum().sum()}")
+        logger.info(f"Missing values before cleaning: {features.isna().sum().sum()}")
         
-        # Forward fill for missing values
-        features = features.fillna(method='ffill')
+        # Remove columns with too many NaN values (>10%)
+        nan_threshold = 0.1
+        nan_pct = features.isna().mean()
+        bad_features = nan_pct[nan_pct > nan_threshold].index
+        if len(bad_features) > 0:
+            logger.warning(f"Dropping {len(bad_features)} features with >{nan_threshold*100}% NaN values")
+            features = features.drop(columns=bad_features)
+        
+        # Fill remaining NaN values: forward fill -> backward fill -> zero
+        features = features.ffill().bfill().fillna(0)
+        logger.info(f"Missing values after cleaning: {features.isna().sum().sum()}")
+        logger.info(f"Final feature matrix shape: {features.shape}")
         
         return features
     
