@@ -4,7 +4,7 @@
 # DATA SETTINGS
 data:
   start_date: "2005-01-01"
-  end_date: "2026-01-16"
+  end_date: "2026-01-28"
   
   # Asset universe across 5 domains
   symbols:
