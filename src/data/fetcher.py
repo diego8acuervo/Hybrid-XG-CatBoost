@@ -202,3 +202,4 @@ class CSVDataLoader:
             except Exception as e:
                 logger.warning(f"Failed to load {symbol}: {e}")
         return data
+

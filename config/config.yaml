@@ -4,23 +4,27 @@
 # DATA SETTINGS
 data:
   start_date: "2005-01-01"
-  end_date: "2026-01-28"
-  
+  end_date: "2026-04-30"
+
+  # Target symbol for strategy and cross-asset features
+  target_symbol: "BTC-USD"
+
   # Asset universe across 5 domains
   symbols:
-    - "SPY"       # Equities: S&P 500 ETF
-    - "QQQ"       # Equities: Nasdaq-100 ETF
-    - "IWM"       # Equities: Russell 2000 (small cap)
-    - "TLT"       # Equities: 20+ Year Treasury ETF
-    - "^VIX"      # Volatility: VIX Index
-    - "GLD"       # Commodities: Gold ETF
-    - "CL=F"      # Commodities: WTI Crude Oil
-    - "DX-Y.NYB"  # FX: USD Dollar Index
-    - "EURUSD=X"  # FX: Euro/USD
-    - "JPY=X"     # FX: Japanese Yen per USD
-    - "^TNX"      # Treasuries: 10Y Treasury Yield
-    - "^IRX"      # Treasuries: 3M Treasury Yield
-  
+    - "SPY" # Equities: S&P 500 ETF
+    - "QQQ" # Equities: Nasdaq-100 ETF
+    - "IWM" # Equities: Russell 2000 (small cap)
+    - "TLT" # Equities: 20+ Year Treasury ETF
+    - "^VIX" # Volatility: VIX Index
+    - "GLD" # Commodities: Gold ETF
+    - "CL=F" # Commodities: WTI Crude Oil
+    - "DX-Y.NYB" # FX: USD Dollar Index
+    - "EURUSD=X" # FX: Euro/USD
+    - "JPY=X" # FX: Japanese Yen per USD
+    - "^TNX" # Treasuries: 10Y Treasury Yield
+    - "^IRX" # Treasuries: 3M Treasury Yield
+    - "BTC-USD" # Cryptocurrencies: Bitcoin
+
   # Caching
   cache_data: true
   cache_dir: "./data/raw"
@@ -28,37 +32,37 @@ data:
 # FEATURE ENGINEERING
 features:
   # Rolling window sizes for moment calculations
-  rolling_windows: [21, 63]  # Business days
-  
+  rolling_windows: [ 21, 63 ] # Business days
+
   # Hurst exponent scales (powers of 2 for stability)
-  hurst_scales: [16, 64, 256]
-  
+  hurst_scales: [ 16, 64, 256 ]
+
   # Information-theoretic measures
   entropy_bins: 30
-  
+
   # Target variable definition
-  target_drawdown: 0.01      # 1% threshold
-  target_horizon: 5          # 5 trading days
-  
+  target_drawdown: 0.01 # 1% threshold
+  target_horizon: 5 # 5 trading days
+
   # Feature filtering
   feature_selection: "mutual_information"
-  top_features: 80           # Select top 80 features
-  correlation_threshold: 0.95  # Remove if corr > this
-  variance_threshold: 0.0001   # Remove if var < this
+  top_features: 80 # Select top 80 features
+  correlation_threshold: 0.95 # Remove if corr > this
+  variance_threshold: 0.0001 # Remove if var < this
 
 # MODEL CONFIGURATION
 model:
   # Ensemble type
   ensemble_type: "soft_voting"
-  base_learners: ["mlp", "xgboost", "catboost"]
-  
+  base_learners: [ "mlp", "xgboost", "catboost" ]
+
   # Random state for reproducibility
   random_state: 42
-  
+
   # MLP Neural Network
-  mlp_hidden_layers: [128, 64]
+  mlp_hidden_layers: [ 128, 64 ]
   mlp_dropout: 0.3
-  
+
   # XGBoost Parameters
   xgboost_params:
     n_estimators: 200
@@ -66,7 +70,7 @@ model:
     learning_rate: 0.1
     subsample: 0.8
     colsample_bytree: 0.8
-  
+
   # CatBoost Parameters
   catboost_params:
     iterations: 200
@@ -77,29 +81,29 @@ model:
 backtest:
   # Strategy parameters
   strategy: "long_short"
-  long_threshold: 0.5        # Buy if P(crash) < 0.5
-  short_threshold: 0.5       # Sell if P(crash) >= 0.5
+  long_threshold: 0.5 # Buy if P(crash) < 0.5
+  short_threshold: 0.5 # Sell if P(crash) >= 0.5
   position_sizing: "probability_weighted"
-  
+
   # Portfolio settings
   initial_capital: 100000
-  transaction_cost: 0.0001   # 1 bps (0.01%)
-  slippage: 0.0              # Optional slippage
-  
+  transaction_cost: 0.0001 # 1 bps (0.01%)
+  slippage: 0.0 # Optional slippage
+
   # Data settings
-  benchmark: "SPY"
+  benchmark: "BTC-USDT"
 
 # WALK-FORWARD TESTING
 walk_forward:
   # Enable walk-forward validation
   enabled: true
-  
+
   # Window sizes (trading days)
-  train_size: 1000           # ~4 years of training
-  test_size: 252             # ~1 year of testing
-  
+  train_size: 1000 # ~4 years of training
+  test_size: 252 # ~1 year of testing
+
   # Rebalancing frequency
   rebalance_frequency: "weekly"
-  
+
   # Number of folds
   n_folds: 4

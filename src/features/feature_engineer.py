@@ -8,12 +8,13 @@ Implements all 178+ features as described in the paper:
 - Information-theoretic measures (KL divergence)
 """
 
+import logging
+import warnings
+from typing import Dict, List, Tuple
+
 import numpy as np
 import pandas as pd
-import logging
-from typing import Tuple, Dict, List
-from scipy.stats import entropy, skew, kurtosis
-import warnings
+from scipy.stats import entropy, kurtosis, skew
 
 warnings.filterwarnings('ignore')
 logger = logging.getLogger(__name__)
@@ -34,7 +35,7 @@ class FeatureEngineer:
         self.entropy_bins = self.config.get('entropy_bins', 30)
         self.target_drawdown = self.config.get('target_drawdown', 0.01)
         self.target_horizon = self.config.get('target_horizon', 5)
-        self.target_symbol = 'SPY'
+        self.target_symbol = config.get('data', {}).get('target_symbol', 'BTC-USD')
     
     def compute_returns(self, prices: pd.DataFrame) -> pd.DataFrame:
         """Compute log returns from price series."""
@@ -113,7 +114,7 @@ class FeatureEngineer:
     
     def compute_rolling_beta(self, asset_returns: pd.Series,
                             market_returns: pd.Series, window: int) -> pd.Series:
-        """Compute rolling beta vs market (SPY).
+        """Compute rolling beta vs market (target symbol).
         
         Beta = Cov(asset, market) / Var(market)
         Uses pandas optimized built-in methods for best performance.
@@ -164,14 +165,14 @@ class FeatureEngineer:
     
     def create_target_variable(self, prices: pd.DataFrame) -> pd.Series:
         """
-        Create binary target: 1 if 5-day SPY drawdown >= 1%, else 0.
-        
-        y_t = 1 if sum(r_SPY[t+1:t+5]) <= -0.01, else 0
+        Create binary target: 1 if 5-day target price drawdown >= 1%, else 0.
+
+        y_t = 1 if sum(r_target[t+1:t+5]) <= -0.01, else 0
         """
-        spy_returns = self.compute_returns(prices[[self.target_symbol]])
-        
+        target_returns = self.compute_returns(prices[[self.target_symbol]])
+
         # Rolling sum of returns over horizon
-        cumsum_returns = spy_returns[self.target_symbol].rolling(
+        cumsum_returns = target_returns[self.target_symbol].rolling(
             window=self.target_horizon
         ).sum()
         
@@ -240,9 +241,9 @@ class FeatureEngineer:
                 features[f'{symbol}_hurst_{scale}'] = hurst_feat
                 feature_count += 1
         
-        # 3. CROSS-ASSET RELATIONSHIPS (vs SPY)
-        logger.info("Computing cross-asset relationships...")
-        spy_returns = returns[self.target_symbol]
+        # 3. CROSS-ASSET RELATIONSHIPS (vs target symbol)
+        logger.info(f"Computing cross-asset relationships vs {self.target_symbol}...")
+        target_returns = returns[self.target_symbol]
         
         for symbol in prices.columns:
             if symbol not in returns.columns or symbol == self.target_symbol:
@@ -252,13 +253,13 @@ class FeatureEngineer:
             
             for window in self.rolling_windows:
                 # Beta
-                beta_feat = self.compute_rolling_beta(asset_returns, spy_returns, window)
-                features[f'{symbol}_beta_SPY_{window}d'] = beta_feat
+                beta_feat = self.compute_rolling_beta(asset_returns, target_returns, window)
+                features[f'{symbol}_beta_{self.target_symbol}_{window}d'] = beta_feat
                 feature_count += 1
                 
                 # Correlation
-                corr_feat = self.compute_rolling_correlation(asset_returns, spy_returns, window)
-                features[f'{symbol}_corr_SPY_{window}d'] = corr_feat
+                corr_feat = self.compute_rolling_correlation(asset_returns, target_returns, window)
+                features[f'{symbol}_corr_{self.target_symbol}_{window}d'] = corr_feat
                 feature_count += 1
         
         # 4. INFORMATION-THEORETIC MEASURES (KL Divergence)
