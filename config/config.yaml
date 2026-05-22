@@ -3,8 +3,8 @@
 
 # DATA SETTINGS
 data:
-  start_date: "2005-01-01"
-  end_date: "2026-04-30"
+  start_date: "2005-05-10"
+  end_date: "2026-05-22"
 
   # Target symbol for strategy and cross-asset features
   target_symbol: "BTC-USD"
@@ -32,10 +32,10 @@ data:
 # FEATURE ENGINEERING
 features:
   # Rolling window sizes for moment calculations
-  rolling_windows: [ 21, 63 ] # Business days
+  rolling_windows: [21, 63] # Business days
 
   # Hurst exponent scales (powers of 2 for stability)
-  hurst_scales: [ 16, 64, 256 ]
+  hurst_scales: [16, 64, 256]
 
   # Information-theoretic measures
   entropy_bins: 30
@@ -54,13 +54,13 @@ features:
 model:
   # Ensemble type
   ensemble_type: "soft_voting"
-  base_learners: [ "mlp", "xgboost", "catboost" ]
+  base_learners: ["mlp", "xgboost", "catboost"]
 
   # Random state for reproducibility
   random_state: 42
 
   # MLP Neural Network
-  mlp_hidden_layers: [ 128, 64 ]
+  mlp_hidden_layers: [128, 64]
   mlp_dropout: 0.3
 
   # XGBoost Parameters

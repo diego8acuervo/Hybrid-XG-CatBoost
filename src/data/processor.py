@@ -8,6 +8,15 @@ import pandas as pd
 import numpy as np
 from typing import Optional, List
 import logging
+# Check if boto3 is installed, if not, install
+try:
+    import boto3
+    boto3_available = True
+except ImportError:
+    boto3_available = False
+    # If boto3 is not available, provide instructions for installation
+    print("boto3 is not installed. Please install it using 'pip install boto3'.")
+    
 
 logger = logging.getLogger(__name__)
 
@@ -133,3 +142,20 @@ class DataProcessor:
             common_idx = common_idx.intersection(df.index)
         
         return [df.loc[common_idx] for df in dataframes]
+
+
+    def loadS3(self, bucket: str, key: str) -> pd.DataFrame:
+        """
+        Load data from S3 bucket.
+        
+        Args:
+            bucket: S3 bucket name
+            key: S3 object key
+            
+        Returns:
+            DataFrame with loaded data
+        """
+        s3_client = boto3.client("s3")
+        response = s3_client.get_object(Bucket=bucket, Key=key)
+        df = pd.read_csv(response["Body"])
+        return df
