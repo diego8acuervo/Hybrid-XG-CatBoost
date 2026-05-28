@@ -534,6 +534,263 @@ Performance metrics do NOT account for:
 - Using current index constituents
 - Historical reconstitutions not accounted for
 
+## Deployment
+
+### Local Development
+
+Run the FastAPI service locally for testing:
+
+```bash
+# Activate virtual environment
+source venv/bin/activate
+
+# Install API dependencies
+pip install -r requirements.txt
+
+# Start the API server
+python app.py
+# or
+uvicorn app:app --host 0.0.0.0 --port 8080 --reload
+```
+
+The API is now available at **http://localhost:8080** with interactive documentation at **http://localhost:8080/docs** (Swagger UI).
+
+### API Endpoints
+
+#### 1. Health Check
+```bash
+GET /health
+```
+Returns service status and model load timestamp. Returns 503 if model is not loaded.
+
+#### 2. Single Prediction
+```bash
+POST /predict
+Content-Type: application/json
+
+{
+  "features": [
+    {
+      "BTC-USD_vol_21d": 0.045,
+      "BTC-USD_skew_21d": -0.15,
+      ...
+    }
+  ],
+  "threshold": 0.5
+}
+```
+Response:
+```json
+{
+  "predictions": [1],
+  "probabilities": [0.37],
+  "threshold": 0.5,
+  "n_samples": 1,
+  "timestamp": "2026-05-22T18:45:32.123456"
+}
+```
+
+#### 3. Daily Batch Update
+```bash
+POST /batch-update
+```
+Triggers the full daily pipeline:
+- Refreshes config with today's date as `end_date`
+- Fetches latest prices from Yahoo Finance (all 12 symbols)
+- Engineers all 178+ features
+- Scores the most recent observation
+- Returns crash probability + trading signal
+
+Response:
+```json
+{
+  "status": "ok",
+  "target_symbol": "BTC-USD",
+  "prediction_date": "2026-05-22",
+  "crash_probability": 0.37,
+  "signal": 1,
+  "n_features_used": 80,
+  "end_date_used": "2026-05-22"
+}
+```
+
+**Note:** `signal = 1` means LOW crash risk (long position), `signal = -1` means HIGH crash risk (short position).
+
+---
+
+### Google Cloud Platform Deployment
+
+Deploy to GCP using Docker, Cloud Run, and Vertex AI for monitoring.
+
+#### Prerequisites
+- GCP Project with billing enabled
+- `gcloud` CLI installed and authenticated
+- Docker installed locally
+
+#### Step 1: Create a Dockerfile
+
+```dockerfile
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y gcc g++ && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements and install Python packages
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt && \
+    pip install --no-cache-dir google-cloud-storage google-cloud-bigquery
+
+# Copy project files
+COPY . .
+
+# Expose port
+EXPOSE 8080
+
+# Start API
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8080"]
+```
+
+#### Step 2: Setup GCP Infrastructure
+
+```bash
+# Set your project ID
+PROJECT_ID="your-gcp-project-id"
+gcloud config set project $PROJECT_ID
+
+# Enable required APIs
+gcloud services enable run.googleapis.com \
+    artifactregistry.googleapis.com \
+    cloudbuild.googleapis.com \
+    cloudscheduler.googleapis.com \
+    aiplatform.googleapis.com \
+    bigquery.googleapis.com
+```
+
+#### Step 3: Store Model Artifacts in Cloud Storage
+
+```bash
+# Create bucket
+BUCKET_NAME="gs://${PROJECT_ID}-alpha-models"
+gsutil mb $BUCKET_NAME
+
+# Upload trained model
+gsutil cp data/results/ensemble_model.pkl $BUCKET_NAME/
+gsutil cp config/config.yaml $BUCKET_NAME/
+```
+
+Update `app.py` to download from GCS on startup:
+```python
+from google.cloud import storage
+
+def _download_from_gcs(bucket_name, source_blob, dest_path):
+    """Download file from GCS."""
+    storage_client = storage.Client()
+    bucket = storage_client.bucket(bucket_name)
+    blob = bucket.blob(source_blob)
+    blob.download_to_filename(dest_path)
+```
+
+#### Step 4: Build and Push Docker Image
+
+```bash
+# Create Artifact Registry repository
+gcloud artifacts repositories create ml-models \
+    --repository-format=docker \
+    --location=us-central1
+
+# Build image with Cloud Build
+gcloud builds submit --tag us-central1-docker.pkg.dev/$PROJECT_ID/ml-models/alpha-model:v1
+
+# (Alternative) Build locally and push
+docker build -t alpha-model:v1 .
+docker tag alpha-model:v1 us-central1-docker.pkg.dev/$PROJECT_ID/ml-models/alpha-model:v1
+docker push us-central1-docker.pkg.dev/$PROJECT_ID/ml-models/alpha-model:v1
+```
+
+#### Step 5: Deploy to Cloud Run
+
+```bash
+gcloud run deploy alpha-model-service \
+    --image us-central1-docker.pkg.dev/$PROJECT_ID/ml-models/alpha-model:v1 \
+    --platform managed \
+    --region us-central1 \
+    --allow-unauthenticated \
+    --memory 2Gi \
+    --cpu 2 \
+    --timeout 600 \
+    --set-env-vars "PORT=8080"
+
+# Get the service URL
+SERVICE_URL=$(gcloud run services describe alpha-model-service \
+    --platform managed \
+    --region us-central1 \
+    --format 'value(status.url)')
+
+echo "Service deployed at: $SERVICE_URL"
+```
+
+#### Step 6: Schedule Daily Batch Updates with Cloud Scheduler
+
+```bash
+# Create scheduler job (e.g., 1 AM UTC, weekdays only)
+gcloud scheduler jobs create http daily-alpha-batch \
+    --schedule="0 1 * * 1-5" \
+    --uri="$SERVICE_URL/batch-update" \
+    --http-method=POST \
+    --time-zone="UTC" \
+    --oidc-service-account-email=<service-account-email>
+```
+
+#### Step 7: Setup Vertex AI Model Monitoring
+
+```bash
+# Create BigQuery dataset for logging predictions
+bq mk --dataset $PROJECT_ID:alpha_predictions
+
+# Log predictions in app.py
+from google.cloud import bigquery
+
+def log_prediction(prediction_data):
+    """Log prediction to BigQuery for monitoring."""
+    client = bigquery.Client()
+    table_id = f"{PROJECT_ID}.alpha_predictions.daily_scores"
+    
+    errors = client.insert_rows_json(table_id, [prediction_data])
+    if errors:
+        logger.error(f"BigQuery insert errors: {errors}")
+```
+
+Create Vertex AI monitoring job in GCP Console or via Python SDK:
+```python
+from google.cloud import aiplatform
+
+# Setup monitoring that checks for training-serving skew
+aiplatform.Model.register(
+    display_name="alpha-model-monitor",
+    artifact_uri=f"gs://{BUCKET_NAME}/ensemble_model.pkl",
+    enable_monitoring=True,
+)
+```
+
+---
+
+### Production Checklist
+
+- [ ] Model artifacts stored in Cloud Storage (versioned)
+- [ ] Docker image built and pushed to Artifact Registry
+- [ ] Cloud Run service deployed with appropriate memory/CPU
+- [ ] Cloud Scheduler job configured for daily `/batch-update` calls
+- [ ] BigQuery logging enabled for predictions
+- [ ] Vertex AI monitoring configured (drift detection)
+- [ ] Error alerting setup (Cloud Logging → Cloud Monitoring)
+- [ ] Load testing performed (`locust` or similar)
+- [ ] Secrets managed via Google Cloud Secret Manager
+- [ ] Audit logging enabled for compliance
+
+---
+
 ## Future Improvements
 
 1. **Out-of-Sample Validation**
@@ -572,6 +829,8 @@ Performance metrics do NOT account for:
    - Live signal generation
    - Alert system for high-risk periods
    - Integration with execution platforms
+
+
 
 ## References
 
