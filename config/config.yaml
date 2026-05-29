@@ -4,7 +4,7 @@
 # DATA SETTINGS
 data:
   start_date: "2005-05-10"
-  end_date: "2026-05-22"
+  end_date: "2026-05-29"
 
   # Target symbol for strategy and cross-asset features
   target_symbol: "BTC-USD"
